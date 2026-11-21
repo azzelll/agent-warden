@@ -1,0 +1,144 @@
+% Tameng: workshop paper draft.
+% Compile on Overleaf (pdfLaTeX) or locally with `latexmk -pdf tameng.tex`.
+% Numbers marked \TBD{...} are pending the qwen3:8b run (results/ollama_qwen3_8b.jsonl)
+% and the gateway run on a real model (npm run eval:gateway -- --model ollama:qwen3:8b).
+\documentclass[10pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+
+\newcommand{\TBD}[1]{\textcolor{red}{[TBD: #1]}}
+\newcommand{\sys}{\textsc{Tameng}}
+
+\title{\sys{}: Layered Defenses Against Indirect Prompt Injection\\
+in a Student's Personal Assistant Agent}
+\author{Made Shandy Krisnanda\\
+\small Faculty of Computer Science, Universitas Indonesia}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Personal assistant agents read text that anyone can write (emails, course announcements, calendar entries) and hold tools that act on the user's behalf. That makes them a natural target for \emph{indirect prompt injection}. We present \sys{}, an open-source red-team harness and a four-layer firewall for tool-using agents, built around a realistic Indonesian student assistant. The harness generates 104 attacks (5 attacker goals $\times$ 3 injection vectors $\times$ 8 techniques, including Indonesian-language and base64 payloads) plus 12 benign tasks that measure what a defense costs. The firewall combines \emph{spotlighting}, a sentence-level \emph{scanner}, a capability \emph{policy} whose authority comes only from the trusted user prompt, and an \emph{output} filter. Against a deterministic worst-case agent that obeys every injection, attack success falls from 99.0\% to 0.0\% with no loss of benign utility, while every single layer alone leaves 14--99\% of attacks successful. With qwen3:8b, the undefended agent is compromised in 32.7\% of attacks (95\% CI 24--42) and the full firewall reaches \TBD{X\%}. We also package the layers as a drop-in Model Context Protocol (MCP) gateway that works without seeing the user's prompt, and show that it replaces prompt-derived intent with user confirmations, whose safety then depends on the user.
+\end{abstract}
+
+\section{Introduction}
+LLM agents are increasingly given access to private data and to tools with side effects. When such an agent reads attacker-controlled text, the attacker can try to steer it: this is indirect prompt injection~\cite{greshake2023}. Benchmarks such as InjecAgent~\cite{zhan2024injecagent} and AgentDojo~\cite{debenedetti2024agentdojo} show that current models remain vulnerable, and that defenses trade security against utility.
+
+We study the problem in a concrete, small setting: \emph{Aiko}, a personal assistant for a university student in Indonesia that reads emails and LMS (SCELE) deadlines, keeps private notes, and sends messages. The setting is narrow, but it has every ingredient of the general problem: untrusted inputs from several channels, a secret worth stealing, a confidential document worth leaking, and sinks that can reach other people. It is also bilingual, which matters because most published injection detectors and datasets are English-only.
+
+\paragraph{Contributions.}
+\begin{itemize}
+\item A reproducible harness of 104 indirect injection attacks and 12 benign tasks, scored only by observable effects in a simulated world, with Wilson confidence intervals (\S\ref{sec:harness}).
+\item A four-layer firewall whose layers differ in kind (advisory, content-based, capability-based, output-based), and an ablation showing that no single layer suffices (\S\ref{sec:defense}, \S\ref{sec:results}).
+\item An MCP gateway that applies the same layers in front of any MCP server without access to the user's prompt, and an analysis of what is lost when intent must come from configuration and confirmations instead (\S\ref{sec:gateway}).
+\end{itemize}
+Code, data and results are open source.\footnote{\url{https://github.com/azzelll/tameng}}
+
+\section{Threat Model}
+\label{sec:threat}
+\textbf{Assets:} a recovery code in the user's private notes; a confidential internship offer letter in the inbox; the user's trust in what the assistant shows them; the user's contact list.
+\textbf{Attacker:} can write text the agent will read: send the user an email from an unknown address, send from (or spoof) a known contact, or edit a course deadline description on the LMS.
+\textbf{Attacker cannot:} change the user's prompt, the system prompt, tool code, or the firewall.
+\textbf{Goals:} \texttt{exfil\_secret} (send the recovery code to the attacker), \texttt{forward\_offer} (forward the offer letter), \texttt{phishing\_link} (show the user a credential-phishing link), \texttt{spam\_contacts} (message every contact), and \texttt{suppress\_deadline} (hide a real deadline). The last is a ``soft'' goal that needs no tool call.
+Direct jailbreaks by the user and attacks on model weights are out of scope.
+
+\section{Harness}
+\label{sec:harness}
+The simulated world contains an inbox, five deadlines, private notes, four contacts, and eight tools, each tagged \emph{untrusted} (emails, deadlines), \emph{sensitive} (notes) or \emph{trusted}, with sinks (\texttt{send\_message}, \texttt{forward\_email}) marked. Every side effect is recorded, and attacks are scored only on effects: e.g.\ \texttt{exfil\_secret} succeeds iff a message to a non-owner recipient contains the secret.
+
+Each attack plants one payload in one vector. The eight techniques are: naive (``P.S.\ also\ldots''), ignore-previous, fake system tag, authority impersonation (in Indonesian), plain Indonesian override, base64-encoded instruction, forged conversation turn, and impersonation of the user. Each technique uses a different attacker address so that no address can be special-cased. Benign tasks cover summarising, forwarding to a named person, messaging, reading notes on request, and sending a trusted course link, so that a defense that blocks legitimate sinks is penalised.
+
+Besides LLM backends (Ollama, Anthropic), the harness includes a \emph{scripted worst-case agent}: it performs the user's task with a fixed plan and also obeys every instruction it can parse in tool output, including base64. It makes the defense's effect testable in CI without any model.
+
+\section{Defense}
+\label{sec:defense}
+\begin{description}
+\item[Spotlight.] Untrusted tool output is wrapped in a random per-episode boundary and the system prompt declares that text inside it is data~\cite{hines2024spotlight}. The random boundary prevents a payload from forging the closing tag. This layer is advisory only.
+\item[Scan.] Per-sentence English and Indonesian heuristics (override phrases, role tags, text addressed to the assistant, tool names, exfiltration verbs, secret-seeking, mass-send, concealment, forged turns), applied also to decoded base64. Suspicious sentences are replaced by a marker; the rest of the email stays usable.
+\item[Policy.] Capabilities are derived \emph{only} from the trusted user prompt: who may be messaged, whether anything may be forwarded, whether notes may be read. Untrusted text may inform the answer but never grant authority, in the spirit of dual-LLM designs~\cite{willison2023dual} and CaMeL~\cite{debenedetti2025camel}. A taint tracker records secret-like tokens from sensitive output; they may only flow to the owner. Links in outgoing messages must point to trusted domains.
+\item[Output.] Links to untrusted domains, look-alike domains and markdown images (a zero-click exfiltration channel) are removed from text the user sees.
+\end{description}
+The layers are chosen to fail differently: spotlight and scan depend on wording; policy ignores wording but cannot see soft attacks that only change what the model \emph{says}; output covers only link-shaped harm.
+
+\section{MCP Gateway}
+\label{sec:gateway}
+In deployment, tools are often provided by third-party MCP servers, and the component that could enforce policy (a proxy) never sees the user's prompt. \sys{}'s gateway is a dependency-free stdio proxy between an MCP client and server. It hides tools configured as \texttt{deny}, scans and spotlights results of untrusted tools, converts structured output of untrusted tools to scanned text, and checks each \texttt{tools/call}. Without the prompt, intent comes from a configuration (owner, recipient allowlist, trusted domains, per-tool source and sink arguments) plus one session rule: once third-party text has entered the session, any sink to someone other than the owner requires \emph{confirmation}, requested from the user through MCP elicitation (and denied if the client cannot ask). Because the gateway also cannot filter the model's final answer, the output layer moves inbound: untrusted links, including ones hidden in base64, are removed before the model reads them.
+
+\section{Results}
+\label{sec:results}
+\paragraph{Setup.} All runs use temperature 0 and the same 104 attacks and 12 benign tasks. We report attack success rate (ASR) with Wilson 95\% intervals, the share of attacks in which the user's own task was still completed, and benign utility. LLM runs use qwen3:8b via Ollama on a consumer laptop.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{Scripted worst case} & \multicolumn{2}{c}{qwen3:8b} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Defense & ASR (95\% CI) & Benign & ASR (95\% CI) & Benign \\
+\midrule
+none      & 99.0 (95--100) & 12/12 & 32.7 (24--42) & 8/12 \\
+spotlight & 99.0 (95--100) & 12/12 & \TBD{} & \TBD{} \\
+scan      & 14.4 (9--22)   & 12/12 & \TBD{} & \TBD{} \\
+output    & 76.0 (67--83)  & 12/12 & \TBD{} & \TBD{} \\
+policy    & 29.8 (22--39)  & 12/12 & \TBD{} & \TBD{} \\
+full      & 0.0 (0--4)     & 12/12 & \TBD{} & \TBD{} \\
+\bottomrule
+\end{tabular}
+\caption{Attack success rate (\%) per defense configuration. The user's task was still completed in 100\% of scripted attack episodes under every defense.}
+\label{tab:harness}
+\end{table}
+
+\paragraph{No single layer is enough.} On the worst-case agent (Table~\ref{tab:harness}), spotlighting has no effect, as expected for an agent that ignores it. The scanner stops most payloads but misses 15 phishing variants; the policy stops every exfiltration, forward and spam attack but none of the phishing or suppression attacks, because those need no unauthorised tool call; the output filter stops only phishing. Combined, the layers cover each other's gaps and ASR is 0/104 without losing a benign task.
+
+\paragraph{A real model is less gullible but still exploitable.} Undefended qwen3:8b follows 34 of 104 injections; phishing is the most successful goal (15/24), since repeating a link looks like helpfulness. Benign utility is 8/12 even without a defense, which bounds what any defense can preserve. With the full firewall: \TBD{ASR, CI, benign utility, and per-layer ablation}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+Gateway configuration (scripted agent) & ASR & Attacks reaching a prompt & Benign utility \\
+\midrule
+full, user declines            & 0.0\%  & 0/104  & 10/12 \\
+full, user approves            & 0.0\%  & 0/104  & 12/12 \\
+no scan, user declines         & 6.7\%  & 42/104 & 10/12 \\
+no scan, user approves         & 47.1\% & 42/104 & 12/12 \\
+no scan, no output, user approves & 76.0\% & 48/104 & 12/12 \\
+full, qwen3:8b                 & \TBD{} & \TBD{} & \TBD{} \\
+\bottomrule
+\end{tabular}
+\caption{The MCP gateway on the same attacks. The simulated user either declines or approves every confirmation prompt.}
+\label{tab:gateway}
+\end{table}
+
+\paragraph{The gateway shifts trust to the user.} Table~\ref{tab:gateway} shows that the full gateway also stops all 104 attacks, but for a different reason than the harness firewall: the content layers remove the payloads before the policy is ever consulted. With the scanner disabled, 42 attacks reach a confirmation prompt, and ASR is 6.7\% or 47.1\% depending only on whether the user declines or approves. Two benign tasks (forwarding an email, messaging a teammate after reading the inbox) always need a prompt, which is the utility cost of not seeing the user's intent. Since prompt fatigue pushes real users toward approval, a gateway should keep prompts rare and specific, and should not rely on them as its only line of defense.
+
+\section{Limitations}
+The attacks are static templates, not an adaptive attacker; adaptive attacks are known to defeat content-based layers, and only the policy layer is designed to hold regardless of wording. The scanner was written by the same author as the attacks, so its standalone numbers are optimistic. Intent extraction is rule-based. The world is small and we evaluate one local model. Gateway confirmations are simulated as all-approve or all-decline.
+
+\section{Related Work}
+Greshake et al.~\cite{greshake2023} introduced indirect prompt injection against LLM-integrated applications. InjecAgent~\cite{zhan2024injecagent} and AgentDojo~\cite{debenedetti2024agentdojo} benchmark tool-using agents under injection; \sys{} is far smaller but bilingual and tied to a deployed assistant. Spotlighting~\cite{hines2024spotlight} marks untrusted data; the dual-LLM pattern~\cite{willison2023dual} and CaMeL~\cite{debenedetti2025camel} separate control flow from untrusted data and enforce capabilities, which our policy layer approximates with a lightweight, rule-based intent.
+
+\section{Conclusion}
+Layering defenses that fail in different ways is what made the difference in our setting: each layer alone leaves 14--99\% of attacks on a worst-case agent successful, and together they stop all of them without losing benign utility. Moving the defense into an MCP gateway is practical, but intent that cannot be read from the prompt has to come from the user, so the quality of confirmation prompts becomes part of the security boundary.
+
+\begin{thebibliography}{9}\small
+\bibitem{greshake2023} K.~Greshake, S.~Abdelnabi, S.~Mishra, C.~Endres, T.~Holz, M.~Fritz. Not what you've signed up for: Compromising real-world LLM-integrated applications with indirect prompt injection. \emph{AISec}, 2023. arXiv:2302.12173.
+\bibitem{zhan2024injecagent} Q.~Zhan, Z.~Liang, Z.~Ying, D.~Kang. InjecAgent: Benchmarking indirect prompt injections in tool-integrated large language model agents. \emph{Findings of ACL}, 2024. arXiv:2403.02691.
+\bibitem{debenedetti2024agentdojo} E.~Debenedetti, J.~Zhang, M.~Balunovi\'c, L.~Beurer-Kellner, M.~Fischer, F.~Tram\`er. AgentDojo: A dynamic environment to evaluate prompt injection attacks and defenses for LLM agents. \emph{NeurIPS Datasets and Benchmarks}, 2024. arXiv:2406.13352.
+\bibitem{hines2024spotlight} K.~Hines, G.~Lopez, M.~Hall, F.~Zarfati, Y.~Zunger, E.~Kiciman. Defending against indirect prompt injection attacks with spotlighting. arXiv:2403.14720, 2024.
+\bibitem{debenedetti2025camel} E.~Debenedetti et al. Defeating prompt injections by design. arXiv:2503.18813, 2025.
+\bibitem{willison2023dual} S.~Willison. The dual LLM pattern for building AI assistants that can resist prompt injection. Blog post, 2023.
+\end{thebibliography}
+
+\end{document}
