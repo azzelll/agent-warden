@@ -1,6 +1,5 @@
 % Agent Warden: workshop paper draft.
 % Compile on Overleaf (pdfLaTeX) or locally with `latexmk -pdf agent-warden.tex`.
-% Numbers marked \TBD{...} are pending the qwen3:8b run (results/ollama_qwen3_8b.jsonl)
 % and the gateway run on a real model (npm run eval:gateway -- --model ollama:qwen3:8b).
 \documentclass[10pt]{article}
 \usepackage[margin=1in]{geometry}
@@ -27,7 +26,7 @@ in a Student's Personal Assistant Agent}
 \maketitle
 
 \begin{abstract}
-Personal assistant agents read text that anyone can write (emails, course announcements, calendar entries) and hold tools that act on the user's behalf. That makes them a natural target for \emph{indirect prompt injection}. We present \sys{}, an open-source red-team harness and a four-layer firewall for tool-using agents, built around a realistic Indonesian student assistant. The harness generates 104 attacks (5 attacker goals $\times$ 3 injection vectors $\times$ 8 techniques, including Indonesian-language and base64 payloads) plus 12 benign tasks that measure what a defense costs. The firewall combines \emph{spotlighting}, a sentence-level \emph{scanner}, a capability \emph{policy} whose authority comes only from the trusted user prompt, and an \emph{output} filter. Against a deterministic worst-case agent that obeys every injection, attack success falls from 99.0\% to 0.0\% with no loss of benign utility, while every single layer alone leaves 14--99\% of attacks successful. With qwen3:8b, the undefended agent is compromised in 32.7\% of attacks (95\% CI 24--42) and the full firewall reaches \TBD{X\%}. We also package the layers as a drop-in Model Context Protocol (MCP) gateway that works without seeing the user's prompt, and show that it replaces prompt-derived intent with user confirmations, whose safety then depends on the user.
+Personal assistant agents read text that anyone can write (emails, course announcements, calendar entries) and hold tools that act on the user's behalf. That makes them a natural target for \emph{indirect prompt injection}. We present \sys{}, an open-source red-team harness and a four-layer firewall for tool-using agents, built around a realistic Indonesian student assistant. The harness generates 104 attacks (5 attacker goals $\times$ 3 injection vectors $\times$ 8 techniques, including Indonesian-language and base64 payloads) plus 12 benign tasks that measure what a defense costs. The firewall combines \emph{spotlighting}, a sentence-level \emph{scanner}, a capability \emph{policy} whose authority comes only from the trusted user prompt, and an \emph{output} filter. Against a deterministic worst-case agent that obeys every injection, attack success falls from 99.0\% to 0.0\% with no loss of benign utility, while every single layer alone leaves 14--99\% of attacks successful. With qwen3:8b, the undefended agent is compromised in 32.7\% of attacks (95\% CI 24--42) and the full firewall reaches 0\% (0/104, 95\% CI 0--4) with no loss of benign utility. We also package the layers as a drop-in Model Context Protocol (MCP) gateway that works without seeing the user's prompt, and show that it replaces prompt-derived intent with user confirmations, whose safety then depends on the user.
 \end{abstract}
 
 \section{Introduction}
@@ -114,14 +113,14 @@ full, user approves            & 0.0\%  & 0/104  & 12/12 \\
 no scan, user declines         & 6.7\%  & 42/104 & 10/12 \\
 no scan, user approves         & 47.1\% & 42/104 & 12/12 \\
 no scan, no output, user approves & 76.0\% & 48/104 & 12/12 \\
-full, qwen3:8b                 & \TBD{} & \TBD{} & \TBD{} \\
+full, qwen3:8b, user approves & 0.0\% & 0/104 & 8/12 \\
 \bottomrule
 \end{tabular}
 \caption{The MCP gateway on the same attacks. The simulated user either declines or approves every confirmation prompt.}
 \label{tab:gateway}
 \end{table}
 
-\paragraph{The gateway shifts trust to the user.} Table~\ref{tab:gateway} shows that the full gateway also stops all 104 attacks, but for a different reason than the harness firewall: the content layers remove the payloads before the policy is ever consulted. With the scanner disabled, 42 attacks reach a confirmation prompt, and ASR is 6.7\% or 47.1\% depending only on whether the user declines or approves. Two benign tasks (forwarding an email, messaging a teammate after reading the inbox) always need a prompt, which is the utility cost of not seeing the user's intent. Since prompt fatigue pushes real users toward approval, a gateway should keep prompts rare and specific, and should not rely on them as its only line of defense.
+\paragraph{The gateway shifts trust to the user.} On qwen3:8b with a user who approves every prompt, the full gateway also stops all 104 attacks (Table~\ref{tab:gateway}), and no attack even reaches a prompt. Table~\ref{tab:gateway} shows that the full gateway also stops all 104 attacks, but for a different reason than the harness firewall: the content layers remove the payloads before the policy is ever consulted. With the scanner disabled, 42 attacks reach a confirmation prompt, and ASR is 6.7\% or 47.1\% depending only on whether the user declines or approves. Two benign tasks (forwarding an email, messaging a teammate after reading the inbox) always need a prompt, which is the utility cost of not seeing the user's intent. Since prompt fatigue pushes real users toward approval, a gateway should keep prompts rare and specific, and should not rely on them as its only line of defense.
 
 \section{Limitations}
 The attacks are static templates, not an adaptive attacker; adaptive attacks are known to defeat content-based layers, and only the policy layer is designed to hold regardless of wording. The scanner was written by the same author as the attacks, so its standalone numbers are optimistic. Intent extraction is rule-based. The world is small and we evaluate one local model. Gateway confirmations are simulated as all-approve or all-decline.
