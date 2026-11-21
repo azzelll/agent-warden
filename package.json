@@ -13,7 +13,9 @@
     "eval": "node --import tsx src/eval/run.ts",
     "report": "node --import tsx src/eval/report.ts",
     "check": "npm run typecheck && npm test",
-    "format": "prettier --write src test README.md"
+    "format": "prettier --write src test README.md",
+    "eval:gateway": "node --import tsx src/eval/gateway.ts",
+    "gateway": "node --import tsx src/gateway/cli.ts"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
