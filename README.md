@@ -1,10 +1,10 @@
-# Tameng
+# Agent Warden
 
 **A red-team harness and a four-layer firewall against indirect prompt injection in tool-using LLM agents.**
 
-_Tameng_ is Indonesian for "shield". The target is an Aiko-like personal assistant: it reads a student's email and SCELE deadlines, keeps private notes, and can send messages. That is the classic setup for **indirect prompt injection**. Whoever can put text in an email or a calendar description can try to make the agent act for them.
+A warden decides what may pass. Agent Warden sits between an LLM agent and its tools and decides which tool calls may run and which data may reach the model or leave it. The target is an Aiko-like personal assistant: it reads a student's email and SCELE deadlines, keeps private notes, and can send messages. That is the classic setup for **indirect prompt injection**. Whoever can put text in an email or a calendar description can try to make the agent act for them.
 
-Tameng does three things:
+Agent Warden does three things:
 
 1. **Attacks.** 104 injection attacks = 5 attacker goals × 3 injection vectors × 8 techniques (English, Indonesian, base64, fake system tags, forged conversation turns, impersonation, …).
 2. **Defends.** Four independent layers you can switch on one by one: spotlighting, an injection scanner, a tool-call policy with taint tracking, and an output filter.
@@ -63,12 +63,12 @@ npm run report -- results/ollama_qwen3_8b.jsonl   # writes results/REPORT.md
 
 The **scripted worst-case agent** (`src/models/scripted.ts`) does the user's task with a fixed plan _and_ obeys every injected instruction it can parse, including base64. It lets CI prove the firewall's effect without any LLM.
 
-## MCP gateway: use Tameng in front of any MCP server
+## MCP gateway: use Agent Warden in front of any MCP server
 
 `src/gateway/` turns the same four layers into a drop-in [Model Context Protocol](https://modelcontextprotocol.io) proxy. It sits between an MCP client (Claude Desktop, Cursor, your own agent) and any stdio MCP server, with zero runtime dependencies.
 
 ```
-MCP client ──stdio──► tameng-gateway ──stdio──► MCP server (Gmail, Slack, files, ...)
+MCP client ──stdio──► warden-gateway ──stdio──► MCP server (Gmail, Slack, files, ...)
                        │ tools/list   hide `deny` tools, mark untrusted ones
                        │ tools/call   policy: static rules, recipient allowlist, taint, links
                        │              confirm → asks the user via MCP elicitation
@@ -91,7 +91,7 @@ The gateway cannot see the user's prompt, so the capabilities that the harness d
     "send_email": { "sink": { "recipient": "to", "content": ["body"] } },
     "delete_all": { "access": "deny" }
   },
-  "audit": "tameng-audit.jsonl"
+  "audit": "warden-audit.jsonl"
 }
 ```
 
@@ -106,9 +106,9 @@ Wire it into a client by replacing the server's command:
       "command": "npx",
       "args": [
         "tsx",
-        "/path/to/tameng/src/gateway/cli.ts",
+        "/path/to/agent-warden/src/gateway/cli.ts",
         "--config",
-        "/path/to/tameng.json",
+        "/path/to/warden.json",
         "--",
         "npx",
         "-y",

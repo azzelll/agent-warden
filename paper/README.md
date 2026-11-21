@@ -1,7 +1,7 @@
 # Paper draft
 
-`tameng.tex` is a ~5-page workshop paper draft (pdfLaTeX, no external .bib file).
-Compile it on Overleaf, or locally with `latexmk -pdf tameng.tex`.
+`agent-warden.tex` is a ~5-page workshop paper draft (pdfLaTeX, no external .bib file).
+Compile it on Overleaf, or locally with `latexmk -pdf agent-warden.tex`.
 
 Numbers in red `[TBD: ...]` are still pending:
 

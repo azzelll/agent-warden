@@ -5,7 +5,7 @@
  * decoded and scanned too. This layer is pattern-based and therefore bypassable
  * by novel phrasings — it is one layer, not the defense.
  */
-export const QUARANTINE = "[Tameng: instruksi mencurigakan disembunyikan]";
+export const QUARANTINE = "[Warden: instruksi mencurigakan disembunyikan]";
 
 const PATTERNS: { name: string; re: RegExp }[] = [
   {

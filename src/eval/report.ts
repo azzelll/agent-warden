@@ -21,7 +21,7 @@ export function summarize(rows: Row[]): string {
   };
   const models = [...new Set(valid.map((r) => r.model))];
   const order = ["none", "spotlight", "scan", "output", "policy", "full"];
-  const lines: string[] = ["# Tameng results", ""];
+  const lines: string[] = ["# Agent Warden results", ""];
   for (const model of models) {
     const mr = valid.filter((r) => r.model === model);
     const defenses = order.filter((d) => mr.some((r) => r.defense === d));

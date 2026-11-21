@@ -1,5 +1,5 @@
-% Tameng: workshop paper draft.
-% Compile on Overleaf (pdfLaTeX) or locally with `latexmk -pdf tameng.tex`.
+% Agent Warden: workshop paper draft.
+% Compile on Overleaf (pdfLaTeX) or locally with `latexmk -pdf agent-warden.tex`.
 % Numbers marked \TBD{...} are pending the qwen3:8b run (results/ollama_qwen3_8b.jsonl)
 % and the gateway run on a real model (npm run eval:gateway -- --model ollama:qwen3:8b).
 \documentclass[10pt]{article}
@@ -15,7 +15,7 @@
 \setlist{nosep,leftmargin=*}
 
 \newcommand{\TBD}[1]{\textcolor{red}{[TBD: #1]}}
-\newcommand{\sys}{\textsc{Tameng}}
+\newcommand{\sys}{\textsc{Agent Warden}}
 
 \title{\sys{}: Layered Defenses Against Indirect Prompt Injection\\
 in a Student's Personal Assistant Agent}
@@ -41,7 +41,7 @@ We study the problem in a concrete, small setting: \emph{Aiko}, a personal assis
 \item A four-layer firewall whose layers differ in kind (advisory, content-based, capability-based, output-based), and an ablation showing that no single layer suffices (\S\ref{sec:defense}, \S\ref{sec:results}).
 \item An MCP gateway that applies the same layers in front of any MCP server without access to the user's prompt, and an analysis of what is lost when intent must come from configuration and confirmations instead (\S\ref{sec:gateway}).
 \end{itemize}
-Code, data and results are open source.\footnote{\url{https://github.com/azzelll/tameng}}
+Code, data and results are open source.\footnote{\url{https://github.com/azzelll/agent-warden}}
 
 \section{Threat Model}
 \label{sec:threat}

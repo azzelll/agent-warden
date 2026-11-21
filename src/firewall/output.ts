@@ -1,7 +1,7 @@
 import { hostAllowed, type Intent } from "./intent.js";
 import { urlsIn } from "./policy.js";
 
-export const LINK_BLOCKED = "[tautan diblokir Tameng]";
+export const LINK_BLOCKED = "[tautan diblokir Warden]";
 
 /**
  * Output filter for text shown to the user: removes links to untrusted

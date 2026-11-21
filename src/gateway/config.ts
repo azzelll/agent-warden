@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 /**
  * Gateway configuration. The gateway never sees the user's prompt, so the
- * capabilities that Tameng derives from the prompt in the harness come from
+ * capabilities that Agent Warden derives from the prompt in the harness come from
  * this file instead: which tools read attacker-reachable data, which tools
  * send data out, who may receive it, and which domains are trusted.
  */

@@ -3,7 +3,7 @@ import { createInterface } from "node:readline";
 import { GatewayEngine } from "./engine.js";
 
 /**
- * MCP stdio proxy: client ⇄ Tameng ⇄ server, newline-delimited JSON-RPC.
+ * MCP stdio proxy: client ⇄ Agent Warden ⇄ server, newline-delimited JSON-RPC.
  *
  * Intercepts:
  *  - initialize (client→server): remembers whether the client supports elicitation;
@@ -56,7 +56,7 @@ export function startProxy(engine: GatewayEngine, io: ProxyIO) {
         content: [
           {
             type: "text",
-            text: `BLOCKED by Tameng security policy (${reason}). Do not retry; tell the user what was blocked and why.`,
+            text: `BLOCKED by Agent Warden security policy (${reason}). Do not retry; tell the user what was blocked and why.`,
           },
         ],
         isError: true,
@@ -104,7 +104,7 @@ export function startProxy(engine: GatewayEngine, io: ProxyIO) {
             m.id!,
             `needs confirmation but the client cannot ask the user: ${d.reason}`,
           );
-        const askId = `tameng-confirm-${++seq}`;
+        const askId = `warden-confirm-${++seq}`;
         confirms.set(askId, {
           tool,
           reason: d.reason,
@@ -116,7 +116,7 @@ export function startProxy(engine: GatewayEngine, io: ProxyIO) {
           id: askId,
           method: "elicitation/create",
           params: {
-            message: `Tameng: the agent wants to call ${tool} with ${JSON.stringify(d.args)}.\nReason for asking: ${d.reason}.\nAllow it?`,
+            message: `Agent Warden: the agent wants to call ${tool} with ${JSON.stringify(d.args)}.\nReason for asking: ${d.reason}.\nAllow it?`,
             requestedSchema: {
               type: "object",
               properties: {

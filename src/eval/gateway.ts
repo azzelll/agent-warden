@@ -145,7 +145,7 @@ export function summarizeGateway(rows: GatewayRow[]): string {
   const valid = rows.filter((r) => !r.error);
   const pct = (n: number, d: number) =>
     d ? `${((100 * n) / d).toFixed(1)}% · ${n}/${d}` : "–";
-  const lines = ["# Tameng MCP gateway results", ""];
+  const lines = ["# Agent Warden MCP gateway results", ""];
   for (const model of new Set(valid.map((r) => r.model))) {
     lines.push(
       `## ${model}`,

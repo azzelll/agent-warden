@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * tameng-gateway: put Tameng in front of any stdio MCP server.
+ * warden-gateway: put Agent Warden in front of any stdio MCP server.
  *
- *   tameng-gateway --config tameng.json -- npx -y @some/mcp-server --flag
+ *   warden-gateway --config warden.json -- npx -y @some/mcp-server --flag
  *
  * In an MCP client config, replace the server's command with this one.
  */
@@ -26,7 +26,7 @@ const { values } = parseArgs({
 
 if (values.help || !values.config || server.length === 0) {
   process.stderr.write(
-    "usage: tameng-gateway --config <file.json> -- <server command> [args...]\n",
+    "usage: warden-gateway --config <file.json> -- <server command> [args...]\n",
   );
   process.exit(values.help ? 0 : 2);
 }
@@ -36,7 +36,7 @@ const child = spawn(server[0]!, server.slice(1), {
   stdio: ["pipe", "pipe", "inherit"],
 });
 child.on("error", (e) => {
-  process.stderr.write(`tameng-gateway: cannot start server: ${e.message}\n`);
+  process.stderr.write(`warden-gateway: cannot start server: ${e.message}\n`);
   process.exit(1);
 });
 child.on("exit", (code) => process.exit(code ?? 0));
