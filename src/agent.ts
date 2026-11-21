@@ -31,7 +31,7 @@ const MAX_STEPS = 12;
 export interface Guard {
   readonly events: FirewallEvent[];
   systemAddendum(): string;
-  inbound(tool: string, trust: Trust, text: string): string;
+  inbound(tool: string, trust: Trust, text: string): string | Promise<string>;
   check(call: ToolCall): Verdict & { args?: Record<string, unknown> };
   outbound(text: string): string;
 }
@@ -94,7 +94,11 @@ export async function runAgent(
           if (tool.sink && typeof args.text === "string")
             args.text = fw.outbound(args.text);
           toolCalls.push({ ...call, arguments: args });
-          result = fw.inbound(call.name, tool.trust, tool.run(world, args));
+          result = await fw.inbound(
+            call.name,
+            tool.trust,
+            tool.run(world, args),
+          );
         }
       }
       messages.push({

@@ -20,7 +20,16 @@ export function summarize(rows: Row[]): string {
     return ` (${(100 * Math.max(0, c - h)).toFixed(0)}–${(100 * Math.min(1, c + h)).toFixed(0)})`;
   };
   const models = [...new Set(valid.map((r) => r.model))];
-  const order = ["none", "spotlight", "scan", "output", "policy", "full"];
+  const order = [
+    "none",
+    "spotlight",
+    "scan",
+    "ml",
+    "output",
+    "policy",
+    "full",
+    "full_ml",
+  ];
   const lines: string[] = ["# Agent Warden results", ""];
   for (const model of models) {
     const mr = valid.filter((r) => r.model === model);

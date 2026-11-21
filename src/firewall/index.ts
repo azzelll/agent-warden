@@ -3,6 +3,7 @@ import type { Trust } from "../tools.js";
 import { deriveIntent, type Intent } from "./intent.js";
 import { Spotlight } from "./spotlight.js";
 import { scan } from "./scanner.js";
+import { mlScan } from "./mlscan.js";
 import { checkToolCall, Taint, type Verdict } from "./policy.js";
 import { filterOutput } from "./output.js";
 
@@ -30,13 +31,22 @@ export class Firewall {
   }
 
   /** Process a tool result before the model sees it. */
-  inbound(tool: string, trust: Trust, text: string): string {
+  async inbound(tool: string, trust: Trust, text: string): Promise<string> {
     // Taint tracking is bookkeeping for the policy layer; it never changes text.
     if (trust === "sensitive") this.taint.addSensitive(text);
     if (trust !== "untrusted") return text;
     let out = text;
     if (this.defenses.scan) {
       const r = scan(out);
+      for (const f of r.findings)
+        this.events.push({
+          layer: "scan",
+          detail: `${f.pattern}: ${f.excerpt}`,
+        });
+      out = r.clean;
+    }
+    if (this.defenses.ml) {
+      const r = await mlScan(out);
       for (const f of r.findings)
         this.events.push({
           layer: "scan",

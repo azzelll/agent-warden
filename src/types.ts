@@ -37,6 +37,8 @@ export type Defenses = {
   scan: boolean;
   policy: boolean;
   output: boolean;
+  /** Learned detector (detector/serve.py) as the scan layer. */
+  ml?: boolean;
 };
 
 export const DEFENSE_PRESETS: Record<string, Defenses> = {
@@ -46,4 +48,12 @@ export const DEFENSE_PRESETS: Record<string, Defenses> = {
   policy: { spotlight: false, scan: false, policy: true, output: false },
   output: { spotlight: false, scan: false, policy: false, output: true },
   full: { spotlight: true, scan: true, policy: true, output: true },
+  ml: { spotlight: false, scan: false, policy: false, output: false, ml: true },
+  full_ml: {
+    spotlight: true,
+    scan: false,
+    policy: true,
+    output: true,
+    ml: true,
+  },
 };
