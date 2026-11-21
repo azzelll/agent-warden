@@ -1,0 +1,14 @@
+{
+  "base": "distilbert/distilbert-base-multilingual-cased",
+  "frozen": "word embeddings",
+  "epochs": 3,
+  "lr": 3e-05,
+  "batch": 16,
+  "max_len": 192,
+  "seed": 13,
+  "train_rows": 4131,
+  "val_rows": 459,
+  "best_val_accuracy": 0.9956427015250545,
+  "seconds": 342,
+  "device": "mps"
+}
