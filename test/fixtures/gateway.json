@@ -1,0 +1,10 @@
+{
+  "owner": "me@example.com",
+  "recipients": ["friend@example.com"],
+  "trustedDomains": ["example.com"],
+  "tools": {
+    "read_inbox": { "source": "untrusted" },
+    "send": { "sink": { "recipient": "to", "content": ["text"] } },
+    "wipe": { "access": "deny" }
+  }
+}
