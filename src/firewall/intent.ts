@@ -40,7 +40,10 @@ export function deriveIntent(prompt: string): Intent {
   };
 }
 
-export function hostAllowed(host: string, intent: Intent): boolean {
+export function hostAllowed(
+  host: string,
+  intent: Pick<Intent, "trustedDomains">,
+): boolean {
   const h = host.toLowerCase();
   return intent.trustedDomains.some((d) => h === d || h.endsWith(`.${d}`));
 }

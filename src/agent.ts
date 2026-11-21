@@ -1,5 +1,6 @@
 import { Firewall, type FirewallEvent } from "./firewall/index.js";
-import { TOOLS, TOOL_SPECS } from "./tools.js";
+import type { Verdict } from "./firewall/policy.js";
+import { TOOLS, TOOL_SPECS, type Trust } from "./tools.js";
 import type { ChatMessage, Defenses, Model, ToolCall } from "./types.js";
 import type { World } from "./world.js";
 
@@ -22,14 +23,28 @@ export type Episode = {
 
 const MAX_STEPS = 12;
 
+/**
+ * What sits between the model and the tools. The harness Firewall is one;
+ * the MCP gateway (src/gateway) is another, evaluated through an adapter.
+ * `check` may return rewritten arguments (e.g. links stripped from a message).
+ */
+export interface Guard {
+  readonly events: FirewallEvent[];
+  systemAddendum(): string;
+  inbound(tool: string, trust: Trust, text: string): string;
+  check(call: ToolCall): Verdict & { args?: Record<string, unknown> };
+  outbound(text: string): string;
+}
+
 /** Run one task: model ⇄ tools, with every tool hop passing through the firewall. */
 export async function runAgent(
   model: Model,
   world: World,
   userPrompt: string,
-  defenses: Defenses,
+  defenses: Defenses | Guard,
 ): Promise<Episode> {
-  const fw = new Firewall(defenses, userPrompt);
+  const fw: Guard =
+    "check" in defenses ? defenses : new Firewall(defenses, userPrompt);
   const system = [SYSTEM_PROMPT, fw.systemAddendum()]
     .filter(Boolean)
     .join("\n\n");
@@ -75,7 +90,7 @@ export async function runAgent(
           toolCalls.push({ ...call, blocked: verdict.reason });
           result = `BLOCKED by security policy (${verdict.reason}). Do not retry; tell the user what was blocked.`;
         } else {
-          const args = { ...call.arguments };
+          const args = { ...(verdict.args ?? call.arguments) };
           if (tool.sink && typeof args.text === "string")
             args.text = fw.outbound(args.text);
           toolCalls.push({ ...call, arguments: args });

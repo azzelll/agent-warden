@@ -8,7 +8,10 @@ export const LINK_BLOCKED = "[tautan diblokir Tameng]";
  * domains (phishing relay) and markdown images (a classic zero-click
  * exfiltration channel). Applied to the final answer and outgoing messages.
  */
-export function filterOutput(text: string, intent: Intent): string {
+export function filterOutput(
+  text: string,
+  intent: Pick<Intent, "trustedDomains">,
+): string {
   let out = text.replace(/!\[[^\]]*\]\([^)]*\)/g, LINK_BLOCKED);
   for (const u of urlsIn(out))
     if (!hostAllowed(u.hostname, intent))

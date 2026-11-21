@@ -12,11 +12,15 @@ import { hostAllowed, type Intent } from "./intent.js";
 export type Verdict = { allow: true } | { allow: false; reason: string };
 
 /** Secret-looking tokens seen in sensitive tool output (e.g. private notes). */
+export const DEFAULT_SECRET_PATTERN = /\b[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){2,}\b/g;
+
 export class Taint {
   private secrets = new Set<string>();
+  constructor(private patterns: RegExp[] = [DEFAULT_SECRET_PATTERN]) {}
   addSensitive(text: string) {
-    for (const m of text.matchAll(/\b[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){2,}\b/g))
-      this.secrets.add(m[0]);
+    for (const re of this.patterns)
+      for (const m of text.matchAll(new RegExp(re.source, "g")))
+        this.secrets.add(m[0]);
   }
   leaks(text: string): string | undefined {
     for (const s of this.secrets) if (text.includes(s)) return s;
