@@ -1,0 +1,25 @@
+{
+  "name": "tameng",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Prompt-injection red-team harness and tool-call firewall for LLM agents",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "eval": "node --import tsx src/eval/run.ts",
+    "report": "node --import tsx src/eval/report.ts",
+    "check": "npm run typecheck && npm test",
+    "format": "prettier --write src test README.md"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "prettier": "3.6.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}
