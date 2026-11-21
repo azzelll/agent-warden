@@ -10,7 +10,28 @@ Agent Warden does three things:
 2. **Defends.** Four independent layers you can switch on one by one: spotlighting, an injection scanner, a tool-call policy with taint tracking, and an output filter.
 3. **Measures.** Attack success rate (ASR) and what the defense costs (12 benign tasks, plus "task still done under attack"). Scoring is **deterministic**: it is decided from observable side effects (who received what, what the user saw), never by asking an LLM to judge.
 
-<!-- RESULTS -->
+## Results
+
+Same 104 attacks and 12 benign tasks, temperature 0. ASR = attack success rate with Wilson 95% interval. Full breakdown: [`results/REPORT.md`](results/REPORT.md).
+
+| Defense | Worst-case scripted agent: ASR | **qwen3:8b (local): ASR** | qwen3:8b benign utility |
+|---|---|---|---|
+| none | 99.0% (95–100) | **32.7% (24–42)** | 8/12 |
+| spotlight | 99.0% | 12.5% (7–20) | 8/12 |
+| scan | 14.4% | 9.6% (5–17) | 8/12 |
+| output | 76.0% | 18.3% (12–27) | 8/12 |
+| policy | 29.8% | 14.4% (9–22) | 7/12 |
+| **full** | **0.0% (0–4)** | **0.0% (0–4)** | **8/12** |
+
+- **The firewall costs no utility on a real model.** qwen3:8b fails the same 4 benign tasks with and without it (a capability limit of the 8B model), and still finishes the user's task in 98% of attack episodes.
+- **No single layer is enough.** Each helps, none reaches zero alone. The scanner misses politely worded phishing, the policy cannot see links in the final answer, and the output filter cannot stop exfiltration.
+- **Forged conversation turns are the strongest technique** (12/13 undefended); base64 payloads never work on this model because it does not decode them.
+- **Honest cost:** the policy layer alone once blocked a legitimate request. Asked to "send me the link", the model used `forward_email` instead of `send_message`, which the intent rules had not authorised.
+
+
+## Learned scan layer
+
+The regex scanner is the weakest layer, so [`detector/`](detector/README.md) replaces it with a fine-tuned multilingual classifier served locally. Against Agent Warden's payloads, held-out attack techniques and public data it beats the regex and an off-the-shelf English detector on recall, with lower false positives than the regex (15% vs 35% on benign emails written to look like instructions). With the worst-case agent the full stack using it stays at 0/104 attacks. Enable it with the `ml` / `full_ml` presets after starting `detector/serve.py`.
 
 ## Threat model
 

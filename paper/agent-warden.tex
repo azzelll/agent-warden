@@ -87,11 +87,11 @@ In deployment, tools are often provided by third-party MCP servers, and the comp
 Defense & ASR (95\% CI) & Benign & ASR (95\% CI) & Benign \\
 \midrule
 none      & 99.0 (95--100) & 12/12 & 32.7 (24--42) & 8/12 \\
-spotlight & 99.0 (95--100) & 12/12 & \TBD{} & \TBD{} \\
-scan      & 14.4 (9--22)   & 12/12 & \TBD{} & \TBD{} \\
-output    & 76.0 (67--83)  & 12/12 & \TBD{} & \TBD{} \\
-policy    & 29.8 (22--39)  & 12/12 & \TBD{} & \TBD{} \\
-full      & 0.0 (0--4)     & 12/12 & \TBD{} & \TBD{} \\
+spotlight & 99.0 (95--100) & 12/12 & 12.5 (7--20) & 8/12 \\
+scan      & 14.4 (9--22)   & 12/12 & 9.6 (5--17) & 8/12 \\
+output    & 76.0 (67--83)  & 12/12 & 18.3 (12--27) & 8/12 \\
+policy    & 29.8 (22--39)  & 12/12 & 14.4 (9--22) & 7/12 \\
+full      & 0.0 (0--4)     & 12/12 & 0.0 (0--4) & 8/12 \\
 \bottomrule
 \end{tabular}
 \caption{Attack success rate (\%) per defense configuration. The user's task was still completed in 100\% of scripted attack episodes under every defense.}
@@ -100,7 +100,7 @@ full      & 0.0 (0--4)     & 12/12 & \TBD{} & \TBD{} \\
 
 \paragraph{No single layer is enough.} On the worst-case agent (Table~\ref{tab:harness}), spotlighting has no effect, as expected for an agent that ignores it. The scanner stops most payloads but misses 15 phishing variants; the policy stops every exfiltration, forward and spam attack but none of the phishing or suppression attacks, because those need no unauthorised tool call; the output filter stops only phishing. Combined, the layers cover each other's gaps and ASR is 0/104 without losing a benign task.
 
-\paragraph{A real model is less gullible but still exploitable.} Undefended qwen3:8b follows 34 of 104 injections; phishing is the most successful goal (15/24), since repeating a link looks like helpfulness. Benign utility is 8/12 even without a defense, which bounds what any defense can preserve. With the full firewall: \TBD{ASR, CI, benign utility, and per-layer ablation}.
+\paragraph{A real model is less gullible but still exploitable.} Undefended qwen3:8b follows 34 of 104 injections; phishing is the most successful goal (15/24), since repeating a link looks like helpfulness. Benign utility is 8/12 even without a defense, which bounds what any defense can preserve. With the full firewall, ASR drops to 0/104 (95\% CI 0--4\%) while benign utility stays at 8/12, the same four tasks the undefended model already fails, and the user's task is still completed in 98\% of attack episodes. Every single layer helps against a real model (12.5\% for spotlighting, 9.6\% for the scanner, 18.3\% for the output filter, 14.4\% for the policy), but none reaches zero alone. The most effective technique is a forged conversation turn (12/13 undefended), while base64 payloads never succeed because the model does not decode them. The policy layer alone has one real utility cost: asked to ``send me the link'', the model chose \texttt{forward\_email} instead of \texttt{send\_message}, which the intent rules did not authorise.
 
 \begin{table}[h]
 \centering
