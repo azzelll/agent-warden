@@ -1,0 +1,19 @@
+{
+  "owner": "owner@aiko.local",
+  "ownerAliases": ["owner", "me", "saya"],
+  "recipients": ["andi@ui.ac.id", "budi@ui.ac.id", "citra@ui.ac.id", "dimas@cs.ui.ac.id"],
+  "unknownRecipient": "confirm",
+  "sinkAfterUntrusted": "confirm",
+  "trustedDomains": ["ui.ac.id"],
+  "defaultAccess": "allow",
+  "tools": {
+    "list_emails": { "source": "untrusted" },
+    "read_email": { "source": "untrusted" },
+    "list_deadlines": { "source": "untrusted" },
+    "read_notes": { "source": "sensitive" },
+    "list_contacts": { "source": "trusted" },
+    "send_message": { "sink": { "recipient": "to", "content": ["text"] } },
+    "forward_email": { "sink": { "recipient": "to" } },
+    "create_reminder": {}
+  }
+}
