@@ -63,6 +63,83 @@ npm run report -- results/ollama_qwen3_8b.jsonl   # writes results/REPORT.md
 
 The **scripted worst-case agent** (`src/models/scripted.ts`) does the user's task with a fixed plan _and_ obeys every injected instruction it can parse, including base64. It lets CI prove the firewall's effect without any LLM.
 
+## MCP gateway: use Tameng in front of any MCP server
+
+`src/gateway/` turns the same four layers into a drop-in [Model Context Protocol](https://modelcontextprotocol.io) proxy. It sits between an MCP client (Claude Desktop, Cursor, your own agent) and any stdio MCP server, with zero runtime dependencies.
+
+```
+MCP client ──stdio──► tameng-gateway ──stdio──► MCP server (Gmail, Slack, files, ...)
+                       │ tools/list   hide `deny` tools, mark untrusted ones
+                       │ tools/call   policy: static rules, recipient allowlist, taint, links
+                       │              confirm → asks the user via MCP elicitation
+                       │ results      scan + strip untrusted links (also inside base64) + spotlight
+                       └ audit.jsonl  every decision, for later review
+```
+
+The gateway cannot see the user's prompt, so the capabilities that the harness derives from it come from a config file, and anything the config cannot decide is turned into a **confirmation prompt** shown to the user:
+
+```json
+{
+  "owner": "me@example.com",
+  "recipients": ["teammate@example.com"],
+  "trustedDomains": ["example.com"],
+  "unknownRecipient": "confirm",
+  "sinkAfterUntrusted": "confirm",
+  "tools": {
+    "read_email": { "source": "untrusted" },
+    "read_notes": { "source": "sensitive" },
+    "send_email": { "sink": { "recipient": "to", "content": ["body"] } },
+    "delete_all": { "access": "deny" }
+  },
+  "audit": "tameng-audit.jsonl"
+}
+```
+
+Rules, in order: a static `access` rule per tool; for sinks, secrets seen in `sensitive` output may only go to the owner, links must point to trusted domains, recipients outside the allowlist need confirmation, and once third-party text has entered the session any sink to someone other than the owner needs confirmation. If the client does not support elicitation, `confirm` becomes `deny`.
+
+Wire it into a client by replacing the server's command:
+
+```json
+{
+  "mcpServers": {
+    "gmail": {
+      "command": "npx",
+      "args": [
+        "tsx",
+        "/path/to/tameng/src/gateway/cli.ts",
+        "--config",
+        "/path/to/tameng.json",
+        "--",
+        "npx",
+        "-y",
+        "some-gmail-mcp-server"
+      ]
+    }
+  }
+}
+```
+
+### Gateway results
+
+Same 104 attacks and 12 benign tasks, with the agent's tools behind the gateway (`examples/aiko-world.json`). Since the gateway asks instead of guessing, each run fixes how a simulated user answers every prompt: **decline** (careful) or **approve** (rubber-stamping, the worst case).
+
+| Scripted worst-case agent          | Attack success | Attacks that reached a prompt | Benign utility | Benign tasks needing a prompt |
+| ---------------------------------- | -------------- | ----------------------------- | -------------- | ----------------------------- |
+| Full gateway, user declines        | 0.0% · 0/104   | 0/104                         | 83.3% · 10/12  | 2/12                          |
+| Full gateway, user approves        | 0.0% · 0/104   | 0/104                         | 100.0% · 12/12 | 2/12                          |
+| No scan layer, user declines       | 6.7% · 7/104   | 42/104                        | 83.3% · 10/12  | 2/12                          |
+| No scan layer, user approves       | 47.1% · 49/104 | 42/104                        | 100.0% · 12/12 | 2/12                          |
+| No scan + no output, user approves | 76.0% · 79/104 | 48/104                        | 100.0% · 12/12 | 2/12                          |
+| qwen3:8b, full gateway             | _in progress_  | _in progress_                 | _in progress_  | _in progress_                 |
+
+What this shows: with the scan layer off, confirmation prompts do the work, so their quality depends entirely on the user. That is why the content layers matter even with a policy in place. The two benign tasks that need a prompt (forwarding an email, messaging a teammate after reading the inbox) are the price of not seeing the user's prompt.
+
+```bash
+npm run eval:gateway -- --model scripted                  # both simulated users
+npm run eval:gateway -- --model scripted --ablate scan    # turn layers off
+npm run eval:gateway -- --model ollama:qwen3:8b
+```
+
 ## Layout
 
 ```
@@ -71,8 +148,10 @@ src/tools.ts          8 tools, each tagged untrusted / sensitive / trusted, sink
 src/agent.ts          the agent loop; every tool hop passes through the firewall
 src/firewall/         intent, spotlight, scanner, policy (+ taint), output filter
 src/dataset/          attack generator + scoring, benign tasks + checks
-src/eval/             runner (resumable JSONL), report (ASR with Wilson 95% CI)
-test/                 unit tests per layer + end-to-end with the scripted agent
+src/eval/             runner (resumable JSONL), report (ASR with Wilson 95% CI), gateway eval
+src/gateway/          MCP stdio proxy: config, engine (policy + layers), proxy, CLI
+examples/             gateway config for the evaluation world
+test/                 unit tests per layer, end-to-end with the scripted agent, gateway + stdio proxy
 ```
 
 ## Limitations (read before quoting numbers)
@@ -81,4 +160,5 @@ test/                 unit tests per layer + end-to-end with the scripted agent
 - **Same author for attacks and scanner.** The scanner was written with these techniques in mind, so its standalone numbers are optimistic. The policy and output layers do not look at wording at all.
 - **Intent extraction is rule-based** on the user prompt (Indonesian/English keywords). A real deployment would need a stricter planner or explicit confirmation for sinks.
 - **Small world, one local model.** 104 attacks × 1 model at temperature 0. Confidence intervals are reported; treat differences of a few points as noise.
+- **Gateway confirmations are simulated** as always-decline or always-approve. Real users sit in between, and prompt fatigue pushes them toward approve.
 - `suppress_deadline` is a "soft" goal: no tool call happens, so only the model's own judgement plus the scanner can stop it.
